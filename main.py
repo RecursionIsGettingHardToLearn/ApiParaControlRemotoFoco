@@ -3,12 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pywizlight import wizlight, PilotBuilder
 import os
 from dotenv import load_dotenv
+import logging
 
-#  ─── CARGAR .env ───────────────────────────────────────
-load_dotenv(override=True)                              # busca y carga .env
+# ─── CONFIGURACIÓN ───────────────────────────────────────
+load_dotenv(override=True)
 FOCO_IP = os.getenv("WIZ_IP")
-#                                                     │ valor por defecto si no está
-foco = wizlight(FOCO_IP)                   
+foco = wizlight(FOCO_IP)
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("wiz-webhook")
 
 app = FastAPI()
 app.add_middleware(
@@ -19,7 +22,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mapa básico de nombres a RGBs
 rgb_map = {
     "rojo":      (255, 0,   0),
     "verde":     (0,   255, 0),
@@ -31,26 +33,39 @@ rgb_map = {
     "esmeralda": (80,  200, 120),
 }
 
-
 @app.post("/webhook")
-
 async def dialogflow_webhook(request: Request):
-    print('gola')
-    body = await request.json()
-    action = body.get("queryResult", {}).get("action", "")
+    try:
+        body = await request.json()
+        action = body.get("queryResult", {}).get("action", "")
 
-    if action == "turn_on_light":
-        await foco.turn_on(PilotBuilder(brightness=255))
-        fulfillment_text = "He encendido la luz."
-    elif action == "turn_off_light":
-        await foco.turn_off()
-        fulfillment_text = "He apagado la luz."
-    elif action == "set_color":
-        color = body["queryResult"]["parameters"].get("color", "").lower()
-        rgb = rgb_map.get(color, (255,255,255))
-        await foco.turn_on(PilotBuilder(rgb=rgb))
-        fulfillment_text = f"He cambiado el color a {color}."
-    else:
-        fulfillment_text = "No entendí el comando."
+        if action == "turn_on_light":
+            await foco.turn_on(PilotBuilder(brightness=255))
+            fulfillment_text = "He encendido la luz."
+        elif action == "turn_off_light":
+            await foco.turn_off()
+            fulfillment_text = "He apagado la luz."
+        elif action == "set_color":
+            color = body["queryResult"]["parameters"].get("color", "").lower()
+            rgb = rgb_map.get(color)
+            if not rgb:
+                raise ValueError(f"Color desconocido: {color}")
+            await foco.turn_on(PilotBuilder(rgb=rgb))
+            fulfillment_text = f"He cambiado el color a {color}."
+        else:
+            fulfillment_text = "No entendí el comando."
 
-    return {"fulfillmentText": fulfillment_text, "source": "wiz-fastapi"}
+        return {
+            "fulfillmentText": fulfillment_text,
+            "source": "wiz-fastapi"
+        }
+
+    except Exception as e:
+        # Guarda stacktrace en logs para debugging
+        logger.exception("Error al procesar webhook")
+        # Devuelve el mensaje de error a Dialogflow
+        return {
+            "fulfillmentText": f"❌ Ocurrió un error: {str(e)}",
+            "source": "wiz-fastapi",
+            "errorDetails": repr(e)
+        }
