@@ -7,7 +7,8 @@ import logging
 
 # ─── CONFIGURACIÓN ───────────────────────────────────────
 load_dotenv(override=True)
-FOCO_IP = os.getenv("WIZ_IP")
+#FOCO_IP = os.getenv("WIZ_IP")
+FOCO_IP ="192.168.87.30"
 foco = wizlight(FOCO_IP)
 
 logging.basicConfig(level=logging.INFO)
