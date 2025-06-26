@@ -40,15 +40,15 @@ async def dialogflow_webhook(request: Request):
     action = body.get("queryResult", {}).get("action", "")
 
     if action == "turn_on_light":
-        #await foco.turn_on(PilotBuilder(brightness=255))
+        await foco.turn_on(PilotBuilder(brightness=255))
         fulfillment_text = "He encendido la luz."
     elif action == "turn_off_light":
-        #await foco.turn_off()
+        await foco.turn_off()
         fulfillment_text = "He apagado la luz."
     elif action == "set_color":
         color = body["queryResult"]["parameters"].get("color", "").lower()
         rgb = rgb_map.get(color, (255,255,255))
-        #await foco.turn_on(PilotBuilder(rgb=rgb))
+        await foco.turn_on(PilotBuilder(rgb=rgb))
         fulfillment_text = f"He cambiado el color a {color}."
     else:
         fulfillment_text = "No entendí el comando."
